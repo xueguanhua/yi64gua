@@ -76,6 +76,11 @@
             color: white;
         }
 
+        .main-nav a.active {
+            background: var(--secondary);
+            color: white;
+        }
+
         .hexagram-grid {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
@@ -389,6 +394,12 @@
             color: var(--muted);
         }
 
+        .detail-number {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
         .divider {
             width: 60px;
             height: 3px;
@@ -544,6 +555,50 @@
             background: var(--secondary);
         }
 
+        .home-btn {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            z-index: 100;
+            text-decoration: none;
+        }
+
+        .home-btn::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 8px solid white;
+        }
+
+        .home-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 10px;
+            background: white;
+            border-radius: 2px;
+        }
+
+        .home-btn:hover {
+            background: var(--secondary);
+        }
+
         .settings-modal {
             display: none;
             position: fixed;
@@ -692,6 +747,67 @@
                 padding: 12px 8px;
             }
         }
+
+        .mini-hexagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .mini-hexagram span {
+            display: block;
+            height: 4px;
+            width: 28px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .mini-hexagram span.yin {
+            width: 28px;
+            position: relative;
+            border-bottom: none;
+        }
+
+        .mini-hexagram span.yin::before,
+        .mini-hexagram span.yin::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            height: 4px;
+            width: 12px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .mini-hexagram span.yin::before { left: 0; }
+        .mini-hexagram span.yin::after { right: 0; }
+
+        .relation-card-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            background: linear-gradient(145deg, #faf7f0, #f5f0e6);
+            border: 1px solid #e0d8c8;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 100px;
+        }
+
+        .relation-card-item:hover {
+            border-color: var(--secondary);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .relation-hint {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            padding: 8px;
+            background: #f5f0e6;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -700,8 +816,8 @@
             <h1>易经64卦</h1>
             <p>探究天人之际，达天人合一之境</p>
             <nav class="main-nav">
-                <a href="#" onclick="showHome(); return false;">卦象一览</a>
-                <a href="#" onclick="showDailyDivination(); return false;">每日一卦</a>
+                <a href="#" id="navHome" onclick="showHome(); return false;">卦象一览</a>
+                <a href="#" id="navDaily" onclick="showDailyDivination(); return false;">每日一卦</a>
             </nav>
         </header>
 
@@ -745,12 +861,18 @@
                 <div class="detail-symbol" id="detailSymbol"></div>
                 <div class="detail-title" id="detailTitle"></div>
                 <div class="detail-english" id="detailEnglish"></div>
+                <div class="detail-number" id="detailNumber"></div>
                 <div class="divider"></div>
             </div>
 
             <div class="section">
                 <div class="section-title">卦辞</div>
                 <div class="section-content" id="detailJudgment"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">卦辞简介</div>
+                <div class="section-content" id="detailExplanation"></div>
             </div>
 
             <div class="section">
@@ -765,14 +887,14 @@
             </div>
 
             <div class="section">
-                <div class="section-title">详解</div>
-                <div class="section-content" id="detailExplanation"></div>
-            </div>
-
-            <div class="section">
                 <div class="section-title">AI解读</div>
                 <div class="section-content" id="detailAiInterpretation"></div>
                 <div class="ai-action" id="detailAiAction"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">卦关系</div>
+                <div id="detailRelations"></div>
             </div>
 
             <div class="section">
@@ -788,6 +910,7 @@
         </footer>
     </div>
 
+    <a href="#" class="home-btn" onclick="showHome(); return false;"></a>
     <button class="settings-btn" onclick="openSettings()">⚙</button>
 
     <div class="settings-modal" id="settingsModal">
@@ -2056,7 +2179,7 @@
             const grid = document.getElementById('hexagramGrid');
             grid.innerHTML = hexagrams.map(h => {
                 let linesHtml = '';
-                for (let i = 5; i >= 0; i--) {
+                for (let i = 0; i < 6; i++) {
                     const isYang = h.yaoTexts[i].name.includes('九');
                     linesHtml += isYang ? '<span class="yang"></span>' : '<span class="yin"></span>';
                 }
@@ -2078,7 +2201,7 @@
             document.getElementById('detailPage').classList.add('active');
 
             document.getElementById('detailSymbol').innerHTML = '';
-            for (let i = 5; i >= 0; i--) {
+            for (let i = 0; i < 6; i++) {
                 const yaoNum = hexagram.yaoTexts[i].name;
                 const isYang = yaoNum.includes('九');
                 const span = document.createElement('span');
@@ -2087,6 +2210,7 @@
             }
             document.getElementById('detailTitle').textContent = hexagram.name;
             document.getElementById('detailEnglish').textContent = `${hexagram.pinyin} · ${hexagram.english}`;
+            document.getElementById('detailNumber').textContent = `第${hexagram.id}卦`;
             document.getElementById('detailJudgment').textContent = hexagram.judgment;
 
             document.getElementById('detailYao').innerHTML = hexagram.yaoTexts.map(yao => `
@@ -2109,6 +2233,24 @@
             yaoAiAction.innerHTML = `<button class="ai-btn" onclick="getYaoAIInterpretation(${id})">
                 <span>🤖</span> AI爻辞解读
             </button>`;
+
+            const relationsEl = document.getElementById('detailRelations');
+            const opposite = getOppositeHexagram(hexagram);
+            const reversed = getReversedHexagram(hexagram);
+            const mutual = getMutualHexagram(hexagram);
+            let relationsHtml = '<div class="relation-hint">错卦：阴阳全部相反 &nbsp;|&nbsp; 综卦：卦倒转看 &nbsp;|&nbsp; 互卦：二三四五爻变化</div>';
+            relationsHtml += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;">';
+            if (opposite) {
+                relationsHtml += createRelationCard('错卦', opposite);
+            }
+            if (reversed && reversed.id !== hexagram.id) {
+                relationsHtml += createRelationCard('综卦', reversed);
+            }
+            if (mutual) {
+                relationsHtml += createRelationCard('互卦', mutual);
+            }
+            relationsHtml += '</div>';
+            relationsEl.innerHTML = relationsHtml;
 
             const practicalEl = document.getElementById('detailPractical');
             const practicalItems = getPracticalApplication(hexagram);
@@ -2221,7 +2363,7 @@ ${hexagram.yaoTexts.map(y => y.name + '：' + y.text).join('\n')}
 3. 处世之道和人生启示
 4. 适用的生活场景
 
-请用中文回答，语言简洁优美，最多1000字。`;
+请用中文回答，语言简洁优美。`;
 
             const provider = settings.provider || 'siliconflow';
             let apiUrl, model, headers, body;
@@ -2302,7 +2444,10 @@ ${hexagram.yaoTexts.map(y => y.name + '：' + y.text).join('\n')}
                 } else {
                     content = data.choices[0].message.content;
                 }
-                content = content.replace(/<[^>]+>/g, '').trim();
+                content = content
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/[a-zA-Z]/g, '')
+                    .trim();
                 const formatted = content
                     .replace(/\n\n+/g, '</p><p style="margin:12px 0;text-indent:2em;">')
                     .replace(/\n/g, '<br>');
@@ -2344,7 +2489,7 @@ ${yaoList}
 【九二】：解读内容...
 以此类推
 
-请用中文回答，语言简洁，每爻约50字，最多600字。`;
+请用中文回答，语言简洁。`;
 
             const provider = settings.provider || 'siliconflow';
             let apiUrl, model, headers, body;
@@ -2425,7 +2570,10 @@ ${yaoList}
                 } else {
                     content = data.choices[0].message.content;
                 }
-                content = content.replace(/<[^>]+>/g, '').trim();
+                content = content
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/[a-zA-Z]/g, '')
+                    .trim();
                 const formatted = content.replace(/\n/g, '<br>');
                 aiEl.innerHTML = '<p style="margin:12px 0;line-height:1.8;">' + formatted + '</p>';
             })
@@ -2529,6 +2677,7 @@ ${yaoList}
             document.getElementById('dailyPage').classList.remove('active');
             document.getElementById('homePage').classList.remove('hidden');
             window.location.hash = '';
+            setActiveNav('navHome');
         }
 
         function showDailyDivination() {
@@ -2536,6 +2685,7 @@ ${yaoList}
             document.getElementById('detailPage').classList.remove('active');
             document.getElementById('dailyPage').classList.add('active');
             resetDivination();
+            setActiveNav('navDaily');
         }
 
         let currentYao = [];
@@ -2663,6 +2813,79 @@ ${yaoList}
                     showDetail(id);
                 }
             }
+        }
+
+        function setActiveNav(id) {
+            document.querySelectorAll('.main-nav a').forEach(a => a.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function getYaoArray(hexagram) {
+            return hexagram.yaoTexts.map(y => y.name.includes('九') ? 1 : 0);
+        }
+
+        function findHexagramByYaoArray(yaoArray) {
+            return hexagrams.find(h => {
+                const hYao = getYaoArray(h);
+                return hYao[0] === yaoArray[0] && hYao[1] === yaoArray[1] && 
+                       hYao[2] === yaoArray[2] && hYao[3] === yaoArray[3] &&
+                       hYao[4] === yaoArray[4] && hYao[5] === yaoArray[5];
+            });
+        }
+
+        function getOppositeHexagram(hexagram) {
+            const yaoArray = getYaoArray(hexagram).map(y => y === 1 ? 0 : 1);
+            return findHexagramByYaoArray(yaoArray);
+        }
+
+        function getReversedHexagram(hexagram) {
+            const yaoArray = getYaoArray(hexagram).reverse();
+            return findHexagramByYaoArray(yaoArray);
+        }
+
+        function getMutualHexagram(hexagram) {
+            const original = getYaoArray(hexagram);
+            const inner = [original[1], original[2], original[3]];
+            const outer = [original[2], original[3], original[4]];
+            const innerHex = findHexagramByTrigram(inner);
+            const outerHex = findHexagramByTrigram(outer);
+            if (innerHex && outerHex) {
+                return hexagrams.find(h => {
+                    const hYao = getYaoArray(h);
+                    return hYao[0] === inner[0] && hYao[1] === inner[1] && hYao[2] === inner[2] &&
+                           hYao[3] === outer[0] && hYao[4] === outer[1] && hYao[5] === outer[2];
+                });
+            }
+            return null;
+        }
+
+        function findHexagramByTrigram(trigram) {
+            const trigrams = [
+                { name: '☰', yao: [1, 1, 1] },
+                { name: '☱', yao: [0, 0, 1] },
+                { name: '☲', yao: [1, 0, 1] },
+                { name: '☳', yao: [1, 1, 0] },
+                { name: '☴', yao: [0, 1, 1] },
+                { name: '☵', yao: [0, 1, 0] },
+                { name: '☶', yao: [1, 0, 0] },
+                { name: '☷', yao: [0, 0, 0] }
+            ];
+            return trigrams.find(t => t.yao[0] === trigram[0] && t.yao[1] === trigram[1] && t.yao[2] === trigram[2]);
+        }
+
+        function createRelationCard(type, hexagram) {
+            let linesHtml = '';
+            for (let i = 0; i < 6; i++) {
+                const isYang = hexagram.yaoTexts[i].name.includes('九');
+                linesHtml += `<span class="${isYang ? 'yang' : 'yin'}"></span>`;
+            }
+            return `
+                <div class="relation-card-item" onclick="showDetail(${hexagram.id})">
+                    <div style="font-size:0.85rem;color:var(--secondary);margin-bottom:4px;">${type}</div>
+                    <div class="mini-hexagram">${linesHtml}</div>
+                    <div style="font-size:1rem;font-weight:600;color:var(--primary);margin-top:4px;">${hexagram.name}</div>
+                </div>
+            `;
         }
 
         init();
